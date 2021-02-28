@@ -1,0 +1,12 @@
+---
+- name: Installation and configuration of mongodb 
+  hosts: mongodb
+  gather_facts: yes
+  become: yes
+  become_method: sudo
+#  connection: local
+  roles:
+     - mongodbadmin
+#  environment:
+#    http_proxy: http://10.93.31.29:8080
+#    https_proxy: https://10.93.31.29:8080

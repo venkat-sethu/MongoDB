@@ -1,0 +1,18 @@
+---
+- include_vars: defaults/secrets.yml
+  tags: always
+- name: Cheking OS name and Version
+  block:
+    - name: starting MongoDB Installation
+      include: rhel_mongodb_install.yml
+    - name: configuring mongodb standalone instance
+      include: rhel_mongodb_standalone.yml
+      when: mongodb_high_availability.replicas == 0
+    - name: configuring high availability in single server
+      include: rhel_single_instance_HA.yml
+      when: mongodb_high_availability.config | length == 1 and  mongodb_high_availability.replicas >= 1 and mongodb_vertical_scaling | length is odd
+    - name: Configuring MongoDB High Availability
+      include: rhel_mongodb_HA.yml
+      when: mongodb_high_availability.config | length > 2 and mongodb_high_availability.replicas >= 1 and mongodb_high_availability.config | length is odd
+
+  when: ansible_facts['distribution'] == "RedHat" and ansible_facts['distribution_version'] > "6.2"     

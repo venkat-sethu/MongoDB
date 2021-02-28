@@ -1,0 +1,5 @@
+db.getSiblingDB('admin').createRole({ role: "dropLocalDB", privileges: [{resource: {db:"local", collection: ""}, actions: ["dropDatabase"] }], roles: []})
+db.getSiblingDB('admin').grantRolesToUser("{{ mongodb_database.configuration.user_name  }}", [ "dropLocalDB" ])
+db.getSiblingDB('local').dropDatabase()
+db.getSiblingDB("admin").dropRole("dropLocalDB")
+

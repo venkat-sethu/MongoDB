@@ -1,0 +1,2 @@
+[test]
+192.168.133.142 ansible_user=venkat

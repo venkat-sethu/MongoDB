@@ -1,0 +1,16 @@
+config = { _id: '{{ mongodb_high_availability.replicaset_name }}',
+   members: [
+{% if mongodb_high_availability.config | length == 1 %}
+{% if mongodb_high_availability.replicas >= 1 %}
+{% for a in range (0, mongodb_vertical_scaling | length)%}
+      { _id: {{ a }}, host: 'localhost:{{ mongodb_vertical_scaling[a].port  }}'},
+{% endfor %}
+{% endif %}
+{% else %}
+{% for a in range (0, mongodb_high_availability.config | length)%}
+      { _id: {{ a  }}, host: '{{ mongodb_high_availability.config[a].replicaset_hostname }}:{{ mongodb_high_availability.config[a].port  }}'},
+{% endfor %}
+{% endif %}
+   ]
+};
+rs.initiate(config);

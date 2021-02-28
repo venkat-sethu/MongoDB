@@ -1,0 +1,3 @@
+mongodb_script:
+     thp_script_path: "/etc/systemd/system/disable-transparent-huge-pages.service"
+

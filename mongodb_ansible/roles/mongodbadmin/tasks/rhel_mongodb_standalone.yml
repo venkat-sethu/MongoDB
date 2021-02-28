@@ -1,0 +1,112 @@
+- include_tasks: rhel_mongodb_config.yml
+  tags: ["configure" , "standalone"]
+
+- name: fetching mongod.service from templates
+  template:
+    src: mongod.service.j2
+    dest: "{{ mongodb_configuration.service_file_path }}"
+    owner: root
+    group: root
+    mode: 0600
+    follow: yes
+  register: service_change
+  notify:
+    - restart mongod
+  tags: ["configure" , "standalone" , "service_file"]
+
+- name: reloading system daemon
+  systemd:
+    daemon_reload: yes
+  when: service_change.changed
+  tags: ["configure" , "standalone" , "service_file"]
+
+- name: MongoDB config file updation from template
+  template:
+    src: mongod_standalone.conf.j2
+    dest: "{{ mongodb_configuration.conf_file_path }}"
+    owner: "{{ mongodb_mongo.user }}"
+    group: "{{ mongodb_mongo.group }}"
+  notify:
+    - restart mongod
+  tags: ["configure" , "standalone" , "config_file"]
+
+- name: stopping service (replicaset to standalone conversion)
+  service:
+    name: mongod
+    state: stopped
+  when: mongodb_configuration.conversion_enabled
+  tags: ["configure" , "standalone"]
+
+- name: checking whether pid file exists or not
+  stat:
+    path: "{{ mongodb_configuration.pid_file_path }}/mongod.pid"
+  register: pid_path
+  tags: ["configure" , "standalone" , "start_mongodb"]
+
+- name: start the mongod service
+  service:
+     name: mongod
+     state: started
+  when: not pid_path.stat.exists
+  tags: ["configure" , "standalone" , "start_mongodb"]
+
+- name: dropping local database (replicaset to standalone conversion)
+  block:
+    - name: templating js script to drop database
+      template:
+        src: drop_local.js.j2
+        dest: /mongo/drop_local.js
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+
+    - name: command to drop local database
+      shell:
+        cmd: "mongo -u {{ mongodb_database.configuration.user_name }} -p {{ mongodb_database.configuration.password }} admin --port {{ mongodb_configuration.port }} drop_local.js "
+        chdir: "/mongo"
+  when: mongodb_configuration.conversion_enabled
+  tags: ["configure" , "standalone"]
+
+- name: creating mongodb database user
+  block:
+   - name: User creation  
+     mongodb_user:
+       database: "{{ mongodb_database.configuration.authentication_database }}"
+       name: "{{ mongodb_database.configuration.user_name }}"
+       password: "{{ mongodb_database.configuration.password }}"
+       roles: "{{ mongodb_database.configuration.roles }}"
+       login_port: "{{ mongodb_configuration.port }}"
+       state: present
+  rescue:
+    - debug:
+        msg: "User is already Created"
+  tags: ["configure" , "standalone" , "db_user_create"]
+  when: not mongodb_database.user_created
+
+#- name: creating database and db users
+#  mongodb_user:
+#    login_database: "{{ mongodb_database.configuration.authentication_database }}"
+#    login_user: "{{ mongodb_database.configuration.user_name }}"
+#    login_password: "{{ mongodb_database.configuration.password }}"
+#    login_port: "{{ mongodb_configuration.port }}"
+#    database: "{{ item.name  }}"
+#    name: "{{ item.username }}"
+#    password: "{{ item.password }}"
+#    roles: "{{ item.role }}"
+#    update_password: on_create
+#  with_items:
+#    - "{{ mongodb_database.configuration.db }}"
+#  tags: ["configure" , "standalone" , "db_user_create"]
+#  when: not mongodb_database.user_created
+
+- name: dropping database
+  shell:
+    cmd: "mongo -u {{ mongodb_database.configuration.user_name }} -p {{ mongodb_database.configuration.password }} --port {{ mongodb_configuration.port }} --eval \"db.getSiblingDB( '{{ item }}').dropDatabase()\" "
+  with_items: "{{ mongodb_configuration.remove.db_name }}"
+  tags: ["never" , "standalone" , "drop_db"] 
+
+#- name: restoring database
+#  command:
+#    cmd: "mongorestore -u {{  mongodb_database.configuration.user_name }} -p {{ mongodb_database.configuration.password }} --authenticationDatabase admin --dir={{ mongodb_configuration.backup_path }}"
+#  when: mongodb_configuration.restore_enabled
+ # tags: ["configure" , "standalone" , "restore"]
+

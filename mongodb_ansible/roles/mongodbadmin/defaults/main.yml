@@ -1,0 +1,99 @@
+mongodb_mongo:
+    version: "4.0.10"
+    user: "mongod"
+    group: "mongod"
+    rpm_linux_version: "el7.x86_64" 
+mongodb_installation:
+    binary_directory: "/tmp/mongo_binaries"
+    install_rpm: true
+    base_directory: "/mongo_data"
+mongodb_configuration:
+    conversion_enabled: false
+    conf_file_path: "/etc/mongod.conf"
+    log_path: "/mongo_logs"
+    data_path: "/mongo_data"
+    dir_mode: "0744"
+    pid_file_path: "{{ mongodb_installation.base_directory }}"
+    encryption_keyfile_path: "{{ mongodb_installation.base_directory }}"
+    service_file_path: "/etc/systemd/system/multi-user.target.wants/mongod.service"
+    backup_path: "/mongo_backup"
+    port: "27017"
+    bind_ip: "0.0.0.0"
+    remove:
+      db_name: "sample"
+    restore_enabled: false
+mongodb_vertical_scaling:
+  - conf_file_path: "/etc/mongod.conf"
+    log_path: "/mongo_logs"
+    data_path: "/mongo_data"
+    encryption_keyfile_path: "/mongo/encryption"
+    pid_file_path: "/mongo/mongodb-pid"
+    service_file_path: "/usr/lib/systemd/system/mongod.service"
+    port: 27017
+    service_name: mongod
+  - conf_file_path: "/etc/mongodha1.conf"
+    log_path: "/var/log/mongodb"
+    data_path: "/var/lib/mongo"
+    pid_file_path: "/var/run/mongodb/mongod.pid"
+    encryption_keyfile_path: "/var/run/mongodb"
+    service_file_path: "/usr/lib/systemd/system/mongodha1.service"
+    port: 27018
+    service_name: mongodha1
+  - conf_file_path: "/etc/mongodha2.conf"
+    log_path: "/home/mongodb/mongo_logs"
+    data_path: "/home/mongodb/mongo_data"
+    encryption_keyfile_path: "/home/mongodb/encryption"
+    pid_file_path: "/home/mongodb/mongod.pid"
+    service_file_path: "/usr/lib/systemd/system/mongodha2.service"
+    port: 27019
+    service_name: mongodha2
+
+mongodb_high_availability:
+    keyfile_present: true
+    mongodb_single_ha: true
+    oplog_size: 1000
+    replicaset_name: "rs0"
+    replicaset_config_path: "/mongo/replicaset.js"
+    mongodb_ha: false    
+    config:
+      - replicaset_hostname: "inmbzr1204.in.dst.ibm.com"
+  #      port: "{{ mongodb_configuration.port }}"
+  #    - replicaset_hostname:  "inmbzr1197.in.dst.ibm.com"
+  #      port: "{{ mongodb_configuration.port }}"
+  #    - replicaset_hostname:  "inmbzr1204.in.dst.ibm.com"
+  #      port: "{{ mongodb_configuration.port }}"
+    replicas: 0
+    remove_replica:
+      single_ha_ports: 27019
+      ha_hostname: "9.124.119.204"
+    add_replica:
+      single_ha_ports: 27019
+      ha_hostname: "9.124.119.204"
+    encryption_key: "{{ mongodb_key.encryption }}"
+    key_file: "{{ mongodb_key.key_file }}"
+mongodb_database:
+    configuration:
+       user_name: "{{ mongodb_db_config.user_name }}"
+       roles: "root"
+       password: "{{ mongodb_db_config.password }}"
+       authentication_database: "{{ mongodb_db_config.authentication_database }}"
+       db:
+          - name: test
+            username: "{{ mongodb_db_config.new_user.0.user_name }}"
+            password: "{{ mongodb_db_config.new_user.0.password }}"
+            role: readWrite,dbAdmin
+          - name: sample
+            username: "{{ mongodb_db_config.new_user.1.user_name }}"
+            password: "{{ mongodb_db_config.new_user.1.password }}"
+            role: userAdmin,dbAdmin
+    user_created: false
+    remove:
+       db_name: sample
+mongodb_ulimit:
+   limitfilesize: "infinity"
+   cpu_time: "infinity"
+   virtual_memory_size: "infinity"
+   open_file: "64000"
+   preocess: "64000"
+   locked_memory: "infinity"
+   total_threads: "infinity"

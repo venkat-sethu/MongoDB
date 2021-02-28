@@ -1,0 +1,39 @@
+- name: copy disable-transparent-hugepages service
+  template:
+       src: disable-transparent-hugepages.j2
+       dest: "{{ mongodb_script.thp_script_path }}"
+       owner: root
+       group: root
+       mode: 0700
+  register: thp_change
+  notify:
+       - restart mongod
+  tags: ["configure" , "mongodb_os" , "script"]
+
+- name: deamon reload
+  systemd:
+      daemon_reload: yes
+  when: thp_change.changed
+  tags: ["configure" , "mongodb_os" , "script"]
+
+- name: enable disable-transparent-hugepages service
+  service:
+      name: disable-transparent-huge-pages
+      enabled: yes
+  tags: ["configure" , "mongodb_os" , "script"]
+
+- name: start  disable-transparent-hugepages service
+  service:
+     name: disable-transparent-huge-pages
+     state: started
+  tags: ["configure" , "mongodb_os" , "service"]
+
+- name: Creating mongodb user
+  user:
+     name: "{{ mongodb_mongo.user }}"
+     shell: /bin/false
+     state: present
+     create_home: no
+     home: "{{ mongodb_configuration.data_path }}"
+  when: not mongodb_installation.install_rpm
+  tags: ["configure" , "mongodb_os" , "os_user"]

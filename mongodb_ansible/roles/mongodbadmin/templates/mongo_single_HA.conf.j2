@@ -1,0 +1,42 @@
+# where to write logging data.
+systemLog:
+  destination: file
+  logAppend: true
+  path: {{ item.log_path }}/mongod.log
+
+processManagement:
+   fork: false
+   pidFilePath: {{ item.pid_file_path }}/mongod.pid
+
+# Where and how to store data.
+storage:
+   dbPath: {{ item.data_path }}
+   journal:
+      enabled: true
+   directoryPerDB: true
+   engine: wiredTiger
+   wiredTiger:
+      engineConfig:
+         directoryForIndexes: true
+         cacheSizeGB: 5
+# network interfaces
+net:
+  port: {{ item.port }}
+  bindIp: {{ mongodb_configuration.bind_ip }}
+security:
+   authorization: enabled
+   keyFile: {{ item.encryption_keyfile_path }}/key_file
+   enableEncryption: true
+   encryptionCipherMode: AES256-CBC
+   encryptionKeyFile: {{ item.encryption_keyfile_path }}/encryption_key
+
+auditLog:
+   destination: file
+   format: JSON
+   path: {{ item.log_path }}/mongod_audit.json
+   filter: '{atype: { $in: [ "createUser", "dropUser", "grantRolesToUser", "revokeRolesFromUser", "createDatabase", "dropDatabase", "createCollection", "createIndex", "dropCollection", "dropIndex", "authenticate", "authCheck" ,"dropAllRolesFromDatabase", "shutdown"]  }}'
+
+replication:
+   oplogSizeMB: {{ mongodb_high_availability.oplog_size }}
+   replSetName: {{ mongodb_high_availability.replicaset_name }}
+

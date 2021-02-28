@@ -1,0 +1,37 @@
+galaxy_info:
+  author: Venkatraman S
+  description: Developer
+  company: IBM
+  license: BSD
+
+  min_ansible_version: 2.9
+  platforms:
+   - name: Linux
+     versions:
+     - greater than 6.2
+
+
+
+dependencies:
+  - role: roles/downloader
+    tags: download
+    vars:
+      download:
+        location: "{{ mongodb_installation.binary_directory }}"
+        checksum_algorithm: md5
+        file:
+         # - name: "mongodb-enterprise-cryptd-{{ mongodb_mongo.version }}-1.el7.x86_64.rpm"
+         #   checksum: '3ff3b6d49a1d716d62cfe098a5d2f39a'
+          - name: "mongodb-enterprise-mongos-{{ mongodb_mongo.version }}-1.el7.x86_64.rpm"
+            checksum: '768403659657122973291daaaa589f10'
+          - name: "mongodb-enterprise-shell-{{ mongodb_mongo.version }}-1.el7.x86_64.rpm"
+            checksum: '602b4de43b3eb40ecc893ffbeafb4ce3'
+          - name: "mongodb-enterprise-server-{{ mongodb_mongo.version }}-1.el7.x86_64.rpm"
+            checksum: '9fdc3d1b46edea4e52d08baf323b9f25'
+          - name: "mongodb-enterprise-tools-{{ mongodb_mongo.version }}-1.el7.x86_64.rpm"
+            checksum: 'c531e91f165b469873c4366a77a1b50e'
+        url: "http://192.168.128.100/repo/mongodb"
+        file_permission: '755'
+
+  - role: mongodbos
+    tags: mongodb_os

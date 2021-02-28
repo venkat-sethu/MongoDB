@@ -1,0 +1,55 @@
+# mongod.conf
+
+# for documentation of all options, see:
+#   http://docs.mongodb.org/manual/reference/configuration-options/
+
+# where to write logging data.
+systemLog:
+  destination: file
+  logAppend: true
+  path: {{ mongodb_configuration.log_path }}/mongod.log
+
+processManagement:
+   fork: false
+   pidFilePath: {{ mongodb_configuration.pid_file_path }}/mongod.pid
+
+# Where and how to store data.
+storage:
+   dbPath: {{ mongodb_configuration.data_path }}
+   journal:
+      enabled: true
+   directoryPerDB: true
+   engine: wiredTiger
+   wiredTiger:
+      engineConfig:
+         directoryForIndexes: true
+         cacheSizeGB: 5
+# network interfaces
+net:
+  port: {{ mongodb_configuration.port }}
+  bindIp: {{ mongodb_configuration.bind_ip }}
+
+security:
+   authorization: enabled
+   enableEncryption: true
+   encryptionCipherMode: AES256-CBC
+   encryptionKeyFile: {{ mongodb_configuration.encryption_keyfile_path }}/encryption_key
+
+auditLog:
+   destination: file
+   format: JSON
+   path: {{ mongodb_configuration.log_path }}/mongod_audit.json
+   filter: '{atype: { $in: [ "createUser", "dropUser", "grantRolesToUser", "revokeRolesFromUser", "createDatabase", "dropDatabase", "createCollection", "createIndex", "dropCollection", "dropIndex", "authenticate", "authCheck" ,"dropAllRolesFromDatabase", "shutdown"]  }}'
+
+#replication:
+
+#operationProfiling:
+
+#sharding:
+
+## Enterprise-Only Options
+
+#auditLog:
+
+#snmp:
+

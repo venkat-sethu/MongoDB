@@ -1,0 +1,66 @@
+---
+- name: check the existance of encryption_key file
+  stat:
+    path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+  register: encrypt_path
+  tags: ["configure" , "general"]
+
+- name: check if the encryption file is empty
+  file:
+    path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+    state: absent
+  when: encrypt_path.stat.exists  and encrypt_path.stat.size == 0
+  tags: ["configure" , "general"]
+
+- name: create encryption_key
+  command:
+    cmd: openssl rand -base64 32 -out  encryption_key
+    chdir: "{{ mongodb_configuration.encryption_keyfile_path }}"
+  when: not encrypt_path.stat.exists or encrypt_path.stat.size == 0
+  tags: ["configure" , "general"]
+
+- name: set permission to encryption key file
+  file:
+     path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+     state: touch
+     modification_time: preserve
+     access_time: preserve
+     owner: "{{ mongodb_mongo.user }}"
+     group: "{{ mongodb_mongo.group }}"
+     mode: 0600
+  when: not encrypt_path.stat.exists  or encrypt_path.stat.mode != "0600"
+  tags: ["configure" , "general"]
+
+- name: Check whether Standalone or HA to create key file
+  block:
+    - name: check the existance of key_file
+      stat:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+      register: key_path
+
+    - name: Check if key file is empty
+      file:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+        state: absent
+      when: key_path.stat.exists  and key_path.stat.size == 0
+
+    - name: create key_file
+      command:
+        cmd: openssl rand -base64 32 -out key_file
+        chdir: "{{ mongodb_configuration.encryption_keyfile_path }}"
+      when: not key_path.stat.exists or key_path.stat.size == 0
+
+    - name: set permission to key file
+      file:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+        state: touch
+        modification_time: preserve
+        access_time: preserve
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        mode: 0400
+      when: not key_path.stat.exists  or key_path.stat.mode != "0400"
+  when: mongodb_high_availability.replicas >= 1
+  tags: ["configure" , "general"]
+     
+

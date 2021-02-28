@@ -1,0 +1,15 @@
+---
+  #handlers file 
+
+- name: restart mongod
+  systemd:
+    name: mongod
+    state: restarted
+    enabled: yes
+
+- name: restart mongodha
+  systemd:
+    name: "{{ item.service_name }}"
+    state: restarted
+    enabled: yes
+  with_items: "{{ mongodb_vertical_scaling }}"

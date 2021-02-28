@@ -1,0 +1,48 @@
+---
+- name: Pre requisites-Installing pymongo
+  easy_install:
+      name: pymongo
+  environment:
+        http_proxy: http://10.93.31.29:8080
+        https_proxy: https://10.93.31.29:8080
+  tags: ["install","download"]
+
+- name: set binary variable
+  set_fact:
+    binary_files:
+          - "mongodb-enterprise-mongos-{{ mongodb_mongo.version }}-1.{{ mongodb_mongo.rpm_linux_version }}.rpm"
+          - "mongodb-enterprise-shell-{{ mongodb_mongo.version }}-1.{{ mongodb_mongo.rpm_linux_version }}.rpm"
+          - "mongodb-enterprise-server-{{ mongodb_mongo.version }}-1.{{ mongodb_mongo.rpm_linux_version }}.rpm"
+          - "mongodb-enterprise-tools-{{ mongodb_mongo.version }}-1.{{ mongodb_mongo.rpm_linux_version }}.rpm"
+        #  - "mongodb-enterprise-cryptd-{{ mongodb_mongo.version }}-1.{{ mongodb_mongo.rpm_linux_version }}.rpm"
+  when: mongodb_installation.install_rpm
+  tags: ["install","rpm_install"]
+
+- name: Installing MongoDB RPM packages
+  yum:
+    name: "{{ mongodb_installation.binary_directory }}/{{ item }}"
+    state: installed
+  environment:
+        http_proxy: http://10.93.31.29:8080
+        https_proxy: https://10.93.31.29:8080
+  loop: "{{ binary_files }}"
+  when: mongodb_installation.install_rpm
+  tags: ["install","rpm_install"]
+
+- name: creating MongoDB Directories
+  file:
+     path: "{{ item }}"
+     state: directory
+     owner: "{{ mongodb_mongo.user }}"
+     group: "{{ mongodb_mongo.group }}"
+     mode: "{{ mongodb_configuration.dir_mode }}"
+  loop:
+     - "{{ mongodb_installation.base_directory }}"
+     - "{{ mongodb_configuration.log_path }}"
+     - "{{ mongodb_configuration.data_path }}"
+     - "{{ mongodb_configuration.pid_file_path }}"
+     - "{{ mongodb_configuration.encryption_keyfile_path }}"
+     - "{{ mongodb_configuration.backup_path }}"
+  tags: ["install","dir_create"]
+
+

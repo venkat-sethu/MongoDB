@@ -1,0 +1,79 @@
+- name: "creating MongoDB log path for {{ item.service_name }} service"
+  file:
+        path: "{{ item.log_path }}"
+        state: directory
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        mode: "{{ mongodb_configuration.dir_mode }}"
+  tags: ["configure", "single_ha" , "dir_create"]
+
+- name: "creating MongoDB data path for {{ item.service_name }} service"
+  file:
+        path: "{{ item.data_path }}"
+        state: directory
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        mode: "{{ mongodb_configuration.dir_mode }}"
+  tags: ["configure", "single_ha" , "dir_create"]
+
+- name: "creating MongoDB pid_file_path for {{ item.service_name }} service"
+  file:
+        path: "{{ item.pid_file_path }}"
+        state: directory
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        mode: "{{ mongodb_configuration.dir_mode }}"
+  tags: ["configure", "single_ha" , "dir_create"]
+
+- name: "creating MongoDB encryption_keyfile_path for {{ item.service_name }} service"
+  file:
+        path: "{{ item.encryption_keyfile_path }}"
+        state: directory
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        mode: "{{ mongodb_configuration.dir_mode }}"
+  tags: ["configure", "single_ha" , "dir_create"]
+
+- name: "copying encryption key from first instance for {{ item.service_name }} service"
+  copy:
+        src: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+        dest: "{{ item.encryption_keyfile_path }}/encryption_key"
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        remote_src: yes
+        mode: 0600
+  tags: ["configure" , "single_ha" , "config_file"]
+
+- name: "copying keyfile from first instance for {{ item.service_name }} service"
+  copy:
+        src: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+        dest: "{{ item.encryption_keyfile_path }}/key_file"
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        remote_src: yes
+        mode: 0400
+  tags: ["configure" , "single_ha" , "config_file"]
+
+- name: "MongoDB config file updation from template for {{ item.service_name }} service"
+  template:
+        src: mongo_single_HA.conf.j2
+        dest: "{{ item.conf_file_path }}"
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+  notify:
+        - restart mongodha
+  tags: ["configure" , "single_ha" , "config_file"]
+
+- name: "fetching mongod.service from templates for {{ item.service_name }} service"
+  template:
+        src: mongoha.service.j2
+        dest: "{{ item.service_file_path }}"
+        owner: root
+        group: root
+        mode: 0600
+        follow: yes
+  register: service_ha_change
+  notify:
+        - restart mongodha
+  tags: ["configure" , "single_ha" , "service_file", "setup"]
+

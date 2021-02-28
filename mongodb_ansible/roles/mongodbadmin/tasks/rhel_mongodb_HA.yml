@@ -1,0 +1,179 @@
+---
+- name: generating encryption and keyfile
+  block: 
+    - name: check the existance of encryption_key file
+      stat:
+        checksum_algorithm: md5
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+      register: encrypt_path
+
+    - name: check the existance of key_file
+      stat:
+        checksum_algorithm: md5
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+      register: key_path
+
+    - name: deleting encryption key file if key is different
+      file:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+        state: absent
+      when:  encrypt_path.stat.checksum != "2204114f1f2b7fd59d174de6ddcef6dd"
+
+    - name: deleting  key file if key is different
+      file:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+        state: absent
+      when: key_path.stat.checksum != "1399a9fbe815c40084ec71683b30c339"
+
+    - name: creating encryption and key file
+      file: 
+        path: "{{ item.path }}"
+        state: touch
+        owner: "{{ mongodb_mongo.user }}"
+        group: "{{ mongodb_mongo.group }}"
+        mode: "{{ item.mode }}"
+      with_items:
+        - { path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key" , mode: '0600'}
+        - { path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file" , mode: '0400'}
+
+    - name: loading  encryption and keyfile 
+      lineinfile:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/encryption_key"
+        line: "{{ mongodb_high_availability.encryption_key }}"
+        mode: '0600'
+        state: present
+
+    - name: loading keyfile
+      lineinfile:
+        path: "{{ mongodb_configuration.encryption_keyfile_path }}/key_file"
+        line: "{{ mongodb_high_availability.key_file }}" 
+        mode: '0400'
+        state: present
+  when: not mongodb_high_availability.keyfile_present
+  tags: ["configure" , "mongodb_high_availability" , "general" ]
+
+- name: fetching mongod.service from templates for HA
+  template:
+    src: mongod.service.j2
+    dest: "{{ mongodb_configuration.service_file_path }}"
+    owner: root
+    group: root
+    mode: 0600
+    follow: yes
+  register: service_change
+  notify:
+    - restart mongod
+  tags: ["configure" , "mongodb_high_availability" , "service_file"]
+
+- name: reloading system daemon -HA
+  systemd:
+    daemon_reload: yes
+  when: service_change.changed
+  tags: ["configure" , "mongodb_high_availability" , "service_file"]
+
+- name: MongoDB config file updation from template -HA
+  template:
+    src: mongo_HA.conf.j2
+    dest: "{{ mongodb_configuration.conf_file_path }}"
+    owner: "{{ mongodb_mongo.user }}"
+    group: "{{ mongodb_mongo.group }}"
+  notify:
+    - restart mongod
+  tags: ["configure" , "mongodb_high_availability" , "conf_file"]
+
+- name: checking whether pid file exists or not -HA
+  stat:
+    path: "{{ mongodb_configuration.pid_file_path }}/mongod.pid"
+  register: pid_path
+  tags: ["configure" , "mongodb_high_availability" , "start_mongodb"]
+
+- name: start the mongod service -HA
+  service:
+     name: mongod
+     state: started
+  when: not pid_path.stat.exists
+  tags: ["configure" , "mongodb_high_availability" , "start_mongodb"]
+
+- name: loading replicaset config template -HA
+  template:
+    src: replicaset.js.j2
+    dest: "{{ mongodb_high_availability.replicaset_config_path }}"
+    owner: "{{ mongodb_mongo.user }}"
+    group: "{{ mongodb_mongo.group }}"
+  tags: ["configure" , "mongodb_high_availability" , "replica_set"]
+  when: ansible_fqdn  == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: configuring mongodb replicaset -HA
+  command:
+      cmd: "mongo --port {{ mongodb_configuration.port }} replicaset.js"
+      chdir: "{{ mongodb_installation.base_directory }}"
+  tags: ["configure" , "mongodb_high_availability" , "replica_set"]
+  when: ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: creating mongodb database user -HA
+  block:
+   - name: User creation
+     mongodb_user:
+       database: "{{ mongodb_database.configuration.authentication_database }}"
+       name: "{{ mongodb_database.configuration.user_name }}"
+       password: "{{ mongodb_database.configuration.password }}"
+       roles: "{{ mongodb_database.configuration.roles }}"
+       state: present
+  rescue:
+    - debug:
+        msg: "User is already Created or this is not primary node"
+  tags: ["configure" , "mongodb_high_availability" , "db_user_create"]
+
+- name: creating database and db users
+  mongodb_user:
+    login_database: "{{ mongodb_database.configuration.authentication_database }}"
+    login_user: "{{ mongodb_database.configuration.user_name }}"
+    login_password: "{{ mongodb_database.configuration.password }}"
+    login_port: "{{ mongodb_configuration.port }}"
+    database: "{{ item.name  }}"
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    roles: "{{ item.role }}"
+    replica_set: "{{ mongodb_high_availability.replicaset_name }}"
+    update_password: on_create
+  with_items:
+    - "{{ mongodb_database.configuration.db }}"
+  tags: ["configure" , "mongodb_high_availability" , "db_user_create"]
+  when: not mongodb_database.user_created and ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: templating all hostname to connect to the primary node
+  template:
+    src: connection_url.j2
+    dest: /mongo/connection_url
+    owner: "{{ mongodb_mongo.user }}"
+    group: "{{ mongodb_mongo.group }}"
+  tags: ["drop_db" , "remove_replica", "add_replica" , "never"]
+  when: ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: loading variable
+  set_fact:
+    temp: "{{ lookup('file', '/mongo/connection_url')}}"
+  tags: ["drop_db" , "remove_replica", "add_replica", "never"]
+  when: ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: dropping database
+  shell:
+    cmd: "mongo -u {{ mongodb_database.configuration.user_name }} -p {{ mongodb_database.configuration.password }}  mongodb://{{ temp }}/?replicaSet={{ mongodb_high_availability.replicaset_name }} --eval \"db.getSiblingDB( '{{ item }}').dropDatabase()\" "
+  with_items: "{{ mongodb_database.remove.db_name }}"
+  tags: ["drop_db" , "never"]
+  when: ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: removing replicaset
+  shell:
+    cmd: "mongo -u {{ mongodb_database.configuration.user_name }} -p {{ mongodb_database.configuration.password }}  mongodb://{{ temp }}/?replicaSet={{ mongodb_high_availability.replicaset_name }} --eval 'rs.remove(\"localhost:{{ item }}\")'"
+  tags: ["remove_replica" , "never"]
+  with_items: "{{ mongodb_high_availability.remove_replica.single_ha_ports }}"
+  when: ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
+- name: adding replicaset
+  shell:
+    cmd: "mongo -u {{ mongodb_database.configuration.user_name }} -p {{ mongodb_database.configuration.password }}  mongodb://{{ temp }}/?replicaSet={{ mongodb_high_availability.replicaset_name }} --eval 'rs.add(\"localhost:{{ item  }}\")'"
+  tags: ["add_replica", "never"]
+  with_items: "{{ mongodb_high_availability.add_replica.single_ha_ports }}"
+  when: ansible_fqdn == mongodb_high_availability.config.1.replicaset_hostname
+
