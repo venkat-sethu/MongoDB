@@ -1,0 +1,28 @@
+systemLog:
+  destination: file
+  logAppend: true
+  path: <%=node['mongodb']['log_path']%>/mongod.log
+
+# Where and how to store data.
+storage:
+  dbPath: <%=node['mongodb']['linux_data_path']%>
+  journal:
+    enabled: true
+#  engine:
+#  mmapv1:
+#  wiredTiger:
+#
+# how the process runs
+processManagement:
+  fork: true  # fork and run in background
+  pidFilePath:  <%=node['mongodb']['base_directory']%>/mongod.pid  # location of pidfile
+  timeZoneInfo: /usr/share/zoneinfo
+
+# network interfaces
+net:
+  port: <%=node['mongodb']['config_port']%>
+  bindIp: <%= @host_name %>  # Listen to local interface only, comment to listen on all interfaces.
+replication:
+   replSetName: "rs0"
+
+  
