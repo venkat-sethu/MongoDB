@@ -56,7 +56,7 @@ mongodb_high_availability:
     replicaset_config_path: "/mongo/replicaset.js"
     mongodb_ha: false    
     config:
-      - replicaset_hostname: "inmbzr1204.in.dst.ibm.com"
+      - replicaset_hostname: "hostname"
   #      port: "{{ mongodb_configuration.port }}"
   #    - replicaset_hostname:  "inmbzr1197.in.dst.ibm.com"
   #      port: "{{ mongodb_configuration.port }}"
@@ -65,10 +65,10 @@ mongodb_high_availability:
     replicas: 0
     remove_replica:
       single_ha_ports: 27019
-      ha_hostname: "9.124.119.204"
+      ha_hostname: "hostname"
     add_replica:
       single_ha_ports: 27019
-      ha_hostname: "9.124.119.204"
+      ha_hostname: "hostname"
     encryption_key: "{{ mongodb_key.encryption }}"
     key_file: "{{ mongodb_key.key_file }}"
 mongodb_database:
